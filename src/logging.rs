@@ -132,7 +132,6 @@ pub fn init() {
                     .expect("fallback chrome trace file is creatable")
             });
             let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
-                .service_name("aenv")
                 .writer(Box::new(writer))
                 .build();
             // Keep the background writer thread alive for the whole process; it
