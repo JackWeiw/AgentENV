@@ -43,6 +43,9 @@ struct ServerCli {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Initializes tracing (fmt + optional Chrome/Perfetto trace layer).
+    // Set AENV_CHROME_TRACE=<path.json> to record pause/resume span durations
+    // for profiling; open the file in chrome://tracing or ui.perfetto.dev.
     agentenv::logging::init();
     agentenv_observability::init_prometheus_recorder()?;
 

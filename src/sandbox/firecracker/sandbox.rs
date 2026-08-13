@@ -659,6 +659,7 @@ impl FirecrackerSandbox {
         }
     }
 
+    #[tracing::instrument(skip(self, snapshot_dir))]
     async fn snapshot_to_dir(
         &self,
         snapshot_dir: &Path,
@@ -801,6 +802,7 @@ impl FirecrackerSandbox {
         Ok((snapshot, manifest))
     }
 
+    #[tracing::instrument(skip(self, vm_state_path, snapshot_dir, memory_output))]
     async fn snapshot_memory_to_overlaybd(
         &self,
         vm_state_path: &Path,
