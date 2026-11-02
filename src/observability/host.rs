@@ -64,6 +64,38 @@ struct CgroupFilePaths {
     memory_current: Vec<PathBuf>,
 }
 
+/// Reads `(MemTotal, MemAvailable)` from `/proc/meminfo`, in bytes.
+///
+/// A free function rather than a collector method so the orchestrator's
+/// admission gate can read the host memory ceiling without building a
+/// request-time collector (whose CPU sample would block on two samples).
+pub(crate) fn read_meminfo_bytes() -> Result<(u64, u64)> {
+    let content = fs::read_to_string("/proc/meminfo").context("read /proc/meminfo")?;
+    let mut total_kib = None;
+    let mut available_kib = None;
+
+    for line in content.lines() {
+        if let Some((key, value)) = line.split_once(':') {
+            let kib = value
+                .split_whitespace()
+                .next()
+                .context("missing meminfo numeric value")?
+                .parse::<u64>()
+                .with_context(|| format!("parse meminfo value for key {}", key))?;
+            match key {
+                "MemTotal" => total_kib = Some(kib),
+                "MemAvailable" => available_kib = Some(kib),
+                _ => {}
+            }
+        }
+    }
+
+    let total = total_kib.context("MemTotal missing in /proc/meminfo")? * 1024;
+    let available = available_kib.context("MemAvailable missing in /proc/meminfo")? * 1024;
+
+    Ok((total, available))
+}
+
 impl HostMetricsCollector {
     pub fn new() -> Self {
         Self {
@@ -161,29 +193,7 @@ impl HostMetricsCollector {
     }
 
     fn read_memory_bytes() -> Result<(u64, u64)> {
-        let content = fs::read_to_string("/proc/meminfo").context("read /proc/meminfo")?;
-        let mut total_kib = None;
-        let mut available_kib = None;
-
-        for line in content.lines() {
-            if let Some((key, value)) = line.split_once(':') {
-                let kib = value
-                    .split_whitespace()
-                    .next()
-                    .context("missing meminfo numeric value")?
-                    .parse::<u64>()
-                    .with_context(|| format!("parse meminfo value for key {}", key))?;
-                match key {
-                    "MemTotal" => total_kib = Some(kib),
-                    "MemAvailable" => available_kib = Some(kib),
-                    _ => {}
-                }
-            }
-        }
-
-        let total = total_kib.context("MemTotal missing in /proc/meminfo")? * 1024;
-        let available = available_kib.context("MemAvailable missing in /proc/meminfo")? * 1024;
-
+        let (total, available) = read_meminfo_bytes()?;
         Ok((total, total.saturating_sub(available)))
     }
 

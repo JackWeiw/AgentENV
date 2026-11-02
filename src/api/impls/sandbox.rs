@@ -55,6 +55,15 @@ impl From<OrchestratorError> for models::Error {
             OrchestratorError::ShuttingDown => {
                 Self::new(503, "orchestrator is shutting down".to_string())
             }
+            OrchestratorError::InsufficientMemory {
+                available_mb,
+                reserve_mb,
+            } => Self::new(
+                429,
+                format!(
+                    "insufficient host memory: {available_mb} MiB available, {reserve_mb} MiB required reserve; retry later"
+                ),
+            ),
             OrchestratorError::SandboxNotFound(id) => sandbox_not_found(id),
             OrchestratorError::InvalidSandboxState { .. } => Self::new(400, err.to_string()),
             OrchestratorError::SandboxOperationFailed {
@@ -1110,9 +1119,12 @@ impl Sandboxes<()> for ApiImpl {
                 )
                 .await;
                 cleanup_volume_ids(&self.volume_manager, &restored_volume_ids).await;
-                Ok(SandboxesPostResponse::Status500_ServerError(
-                    Self::internal_error(&err),
-                ))
+                Ok(match err {
+                    OrchestratorError::InsufficientMemory { .. } => {
+                        SandboxesPostResponse::Status429_InsufficientHostMemory(err.into())
+                    }
+                    _ => SandboxesPostResponse::Status500_ServerError(Self::internal_error(&err)),
+                })
             }
         }
     }
@@ -1159,6 +1171,9 @@ impl Sandboxes<()> for ApiImpl {
                 }
                 SandboxesPostResponse::Status409_Conflict(error) => {
                     V2SandboxesPostResponse::Status409_Conflict(error)
+                }
+                SandboxesPostResponse::Status429_InsufficientHostMemory(error) => {
+                    V2SandboxesPostResponse::Status429_InsufficientHostMemory(error)
                 }
                 SandboxesPostResponse::Status500_ServerError(error) => {
                     V2SandboxesPostResponse::Status500_ServerError(error)

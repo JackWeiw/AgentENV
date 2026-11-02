@@ -295,6 +295,7 @@ Sandbox lifecycle management.
 | `metrics_retention_secs` | integer | `3600` | Node-local in-memory guest sample retention (seconds) |
 | `default_sandbox_timeout_secs` | integer | `15` | Default keep-alive timeout for sandboxes |
 | `auto_resume_min_sandbox_timeout_secs` | integer | `300` | When a data-plane request targets a non-running sandbox, automatically resume it (if auto-resume is enabled) and refresh its timeout for no-less than this duration |
+| `memory_admission_reserve_mb` | integer | `0` | Host memory (MiB) that must remain available before a new sandbox is admitted. Below it, sandbox creates return `429` instead of stalling in direct reclaim. `0` disables the check; 10–15% of `MemTotal` is the useful range. Also settable via `AENV_MEMORY_ADMISSION_RESERVE_MB` |
 | `persisted_sandbox_store_path` | string | `"$AENV_HOME/persisted-sandboxes"` | Directory for persisted sandbox state |
 
 ## `[pool]`

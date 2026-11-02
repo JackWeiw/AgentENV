@@ -70,6 +70,8 @@ pub enum SandboxesPostResponse {
     Status400_BadRequest(models::Error),
     /// Conflict
     Status409_Conflict(models::Error),
+    /// Insufficient host memory
+    Status429_InsufficientHostMemory(models::Error),
     /// Server error
     Status500_ServerError(models::Error),
 }
@@ -321,6 +323,8 @@ pub enum V2SandboxesPostResponse {
     Status400_BadRequest(models::Error),
     /// Conflict
     Status409_Conflict(models::Error),
+    /// Insufficient host memory
+    Status429_InsufficientHostMemory(models::Error),
     /// Server error
     Status500_ServerError(models::Error),
 }

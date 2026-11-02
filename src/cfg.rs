@@ -687,6 +687,13 @@ pub struct OrchestratorConfig {
     pub default_sandbox_timeout_secs: u64,
     #[config(default = 300u64)]
     pub auto_resume_min_sandbox_timeout_secs: u64,
+    /// Host memory (MiB) that must stay available before a new sandbox is
+    /// admitted. Below this reserve, creates are rejected with 429 instead of
+    /// being queued behind direct reclaim, which is what keeps a densely
+    /// packed host from degrading the sandboxes already running. 0 disables
+    /// the check. 10-15% of `MemTotal` is the useful range.
+    #[config(default = 0u64, env = "AENV_MEMORY_ADMISSION_RESERVE_MB")]
+    pub memory_admission_reserve_mb: u64,
     #[config(
         default = "$AENV_HOME/persisted-sandboxes",
         env = "AENV_PERSISTED_SANDBOX_STORE_PATH",

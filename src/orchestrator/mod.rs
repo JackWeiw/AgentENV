@@ -60,6 +60,11 @@ pub enum OrchestratorError {
     #[error("orchestrator is shutting down")]
     ShuttingDown,
 
+    #[error(
+        "insufficient host memory to admit sandbox: {available_mb} MiB available, {reserve_mb} MiB required reserve"
+    )]
+    InsufficientMemory { available_mb: u64, reserve_mb: u64 },
+
     #[error("sandbox {0} not found")]
     SandboxNotFound(SandboxId),
 

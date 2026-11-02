@@ -17,6 +17,7 @@ pub mod prometheus;
 mod reporter;
 mod service;
 
+pub(crate) use host::read_meminfo_bytes;
 pub use host::{DiskMetric, HostMetrics, HostMetricsCollector};
 pub use model::{MachineInfo, NodeMetricsSnapshot, NodeSnapshot};
 pub use reporter::ObservabilityReporter;

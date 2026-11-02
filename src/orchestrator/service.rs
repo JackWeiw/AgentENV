@@ -422,6 +422,10 @@ where
         request: CreateSandboxRequest,
     ) -> Result<SandboxMetadata> {
         let sandbox_id = SandboxId::new();
+        if let Err(err) = Self::ensure_memory_available(&sandbox_id) {
+            self.counters.record_create_fail(1);
+            return Err(err);
+        }
         let this = Arc::clone(self);
         self.run_cancellation_safe("create", sandbox_id, async move {
             this.create_sandbox_inner(sandbox_id, request, false).await
@@ -2884,6 +2888,54 @@ where
         }
 
         Ok(())
+    }
+
+    /// Host-memory admission gate for sandbox creates.
+    ///
+    /// The gate is a watermark on `MemAvailable`, not a per-sandbox estimate:
+    /// a sandbox's physical footprint grows with its guest's dirty pages
+    /// (measured 0.20 GiB at create vs 0.37 GiB while replaying), so any
+    /// admission-time per-sandbox number under-counts what the create will
+    /// eventually cost. A reserve large enough to absorb one create burst is
+    /// the honest bound.
+    ///
+    /// Rejecting fast is the point: once `MemAvailable` is exhausted, admitted
+    /// creates do not fail, they block for minutes in direct reclaim and drag
+    /// every already-running sandbox down with them.
+    fn ensure_memory_available(sandbox_id: &SandboxId) -> Result<()> {
+        let reserve_mb = ConfigManager::global_config()
+            .orchestrator
+            .memory_admission_reserve_mb;
+        if reserve_mb == 0 {
+            return Ok(());
+        }
+
+        let available_bytes = match crate::observability::read_meminfo_bytes() {
+            Ok((_, available)) => available,
+            Err(err) => {
+                // A probe failure must not stop an otherwise healthy node from
+                // accepting creates; the reserve is a safety margin, not a
+                // correctness precondition.
+                warn!(error = ?err, "skipping memory admission check");
+                return Ok(());
+            }
+        };
+        let reserve_bytes = reserve_mb.saturating_mul(1024 * 1024);
+        if available_bytes >= reserve_bytes {
+            return Ok(());
+        }
+
+        let available_mb = available_bytes / (1024 * 1024);
+        info!(
+            %sandbox_id,
+            available_mb,
+            reserve_mb,
+            "rejecting sandbox create: host memory below the admission reserve"
+        );
+        Err(OrchestratorError::InsufficientMemory {
+            available_mb,
+            reserve_mb,
+        })
     }
 }
 
